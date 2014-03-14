@@ -1,0 +1,267 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="Justin Lewis">
+    <title>DRCOG Data Portal Map</title>
+
+    <!-- Core CSS -->
+    <!--<link href="http://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css" rel="stylesheet" type="text/css">-->
+    <link href="http://netdna.bootstrapcdn.com/font-awesome/3.2.1/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+    <link href="http://cdn.leafletjs.com/leaflet-0.6.4/leaflet.css" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="/denver-region-traffic/plugins/Leaflet.markercluster-master/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="/denver-region-traffic/plugins/Leaflet.markercluster-master/dist/MarkerCluster.Default.css" />
+
+    <!--[if lte IE 8]>
+        <link href="http://cdn.leafletjs.com/leaflet-0.6.4/leaflet.ie.css" rel="stylesheet" type="text/css">
+        <link href="http://netdna.bootstrapcdn.com/font-awesome/3.2.1/css/font-awesome-ie7.min.css" rel="stylesheet">
+    <![endif]-->
+    <!-- Custom styles for this template -->
+    <style>
+        html, body, #map, #sidebar, #container {
+            height: 100%;
+            margin: 0px;
+        }
+
+        body {
+            padding-top: 0px;
+        }
+
+        label {
+            font-weight: normal;
+        }
+
+        .panel-heading a:hover {
+            text-decoration: none;
+        }
+
+        .leaflet-popup-content {
+            margin-top: 14px;
+            margin-bottom: 0px;
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+
+        /* Print Handling */
+        @media print {
+            .navbar, .toggle, #sidebar {
+                display: none !important;
+            }
+        }
+
+        #filter-selection {
+            display: block;
+        }
+
+        #hover-info {
+            position: absolute;
+            bottom: 5px;
+            left: 5px;
+            background-color: white;
+            border-radius: 5px;
+            padding: 5px;
+            padding-left: 0px;
+            z-index: 5000;
+            border: solid 2px #4D4D4D;
+            text-align: left;
+        }
+
+        #hover-info .table-striped.table-bordered.table-condensed {
+            margin: 3px;
+        }
+
+        .leaflet-popup-content p {
+            margin: 10px 0;
+            text-align: center;
+        }
+
+        .leaflet-popup-content h5 {
+            font-weight: bold;
+        }
+    </style>
+
+    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+        <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.6.2/html5shiv.js"></script>
+        <script src="//cdnjs.cloudflare.com/ajax/libs/respond.js/1.2.0/respond.js"></script>
+    <![endif]-->
+</head>
+
+<body>
+
+
+
+    <div id="map">
+        <div id="hover-info" style="display:none;"></div>
+    </div>
+
+
+
+    <script type="text/javascript" src="http://code.jquery.com/jquery-1.10.2.min.js"></script>
+    <!--<script type="text/javascript" src="http://netdna.bootstrapcdn.com/bootstrap/3.0.0/js/bootstrap.min.js"></script>-->
+    <script type="text/javascript" src="http://cdn.leafletjs.com/leaflet-0.6.4/leaflet.js"></script>
+    <script src="/denver-region-traffic/plugins/Leaflet.markercluster-master/dist/leaflet.markercluster-src.js"></script>
+    <script src="/denver-region-traffic/plugins/Leaflet.heat-gh-pages/dist/leaflet-heat.js"></script>
+
+    <script type="text/javascript">
+        var map;
+        var popup;
+        var trafficCounts;
+        var heat;
+        var baseMaps;
+        var overlays;
+
+        // Basemap Layers
+        var osm = new L.TileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
+
+        // Initialize the map
+        map = L.map("map", {
+            zoom: 10,
+            center: new L.LatLng(39.79, -105),
+            layers: [osm]
+        });
+
+
+
+
+        ///////////////////
+        //// Traffic Counts
+        ///////////////////
+        function loadTrafficCounts(data) {
+
+            // Building a heat map layer
+            var heatData = [];
+            $.each(data.features, function (key, val) {
+
+                var volume = parseInt(val.properties.alldayvol / 2000);
+
+                while (volume > 0) {
+                    var lat = val.geometry.coordinates[1];
+                    var lng = val.geometry.coordinates[0];
+                    var latlng = L.latLng(lat, lng);
+
+                    heatData.push(latlng);
+
+                    volume--
+                }
+            });
+
+            heat = L.heatLayer(heatData, { radius: 15, blur: 30 }).addTo(map);
+
+
+            // Setting up Leaflet GeoJson layer properties
+            trafficCounts = new L.MarkerClusterGroup({
+                spiderfyDistanceMultiplier: 2,
+                maxClusterRadius: 50,
+                showCoverageOnHover: false,
+                removeOutsideVisibleBounds: true,
+                spiderfyOnMaxZoom: true
+            });
+
+            trafficCounts.addLayer(new L.GeoJSON(data, {
+                style: function (feature) {
+                    return feature.properties && feature.properties.style;
+                },
+                onEachFeature: function (feature, layer) {
+
+                    layer.on({
+                        mouseover: function (e) {
+                            var layer = e.target;
+
+                            layer.setStyle({
+                                radius: 8,
+                                fillColor: "#33FF00",
+                                color: "yellow",
+                                weight: 5,
+                                opacity: 1,
+                                fillOpacity: 1
+                            });
+
+                            if (!L.Browser.ie && !L.Browser.opera) {
+                                layer.bringToFront();
+                            }
+
+                            var content = '<table class="table table-striped table-bordered table-condensed">';
+
+                            content += '<tr class="info-row"><th>Location: </th><td>' + layer.feature.properties.location + '</td></tr>' +
+                                       '<tr class="info-row"><th>Volume: </th><td>' + feature.properties.alldayvol + '</td></tr>' +
+                                       '<tr class="info-row"><th>Date: </th><td>' + feature.properties.counted + '</td></tr>' +
+                                       '<table>';
+
+                            if ($("#hover-info").is(":visible")) {
+                                $("#hover-info").append(content);
+                            } else {
+                                $("#hover-info").show();
+                                $("#hover-info").append(content);
+                            }
+
+                        },
+                        mouseout: function (e) {
+                            var layer = e.target;
+
+                            layer.setStyle({
+                                radius: 5,
+                                fillColor: "#33FF00",
+                                color: "#000",
+                                weight: 1,
+                                opacity: 1,
+                                fillOpacity: 1
+                            });
+
+                            $("#hover-info table").remove();
+                            $("#hover-info").hide();
+                        }
+                    });
+                },
+                pointToLayer: function (feature, latlng) {
+                    return L.circleMarker(latlng, {
+                        radius: 5,
+                        fillColor: "#33FF00",
+                        color: "#000",
+                        weight: 1,
+                        opacity: 1,
+                        fillOpacity: 1
+                    });
+                },
+            }));
+        }
+
+        var trafficCountsUrl = "http://gis.drcog.org/geoserver/DRCOGPUB/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=DRCOGPUB:traffic_counts&propertyName=gid,location,counted,alldayvol,the_geom&srsName=EPSG:4326&maxFeatures=1000000&outputFormat=json";
+
+        $.ajax({
+            url: trafficCountsUrl,
+            dataType: 'json',
+            crossDomain: true,
+            cache: false,
+            timeout: 20000,
+            success: loadTrafficCounts,
+            complete: function () {
+
+                baseMaps = {
+                    "Open Street Maps": osm
+                };
+
+                overlays = {
+                    "Traffic Counts": trafficCounts,
+                    "Traffic Count Density": heat
+                };
+
+                // Add the Leaflet layer switcher
+                map.addControl(new L.control.layers(baseMaps, overlays, { collapsed: false }));
+
+            },
+            error: function (jqXHR, textStatus, errorThrown) {
+
+                console.log(jqXHR, " - ", textStatus, " - ", errorThrown);
+
+                if (textStatus = 'timeout') {
+                    // timeout
+                }
+            }
+        });
+
+    </script>
+</body>
+</html>
