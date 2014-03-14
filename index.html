@@ -124,8 +124,6 @@
         });
 
 
-
-
         ///////////////////
         //// Traffic Counts
         ///////////////////
@@ -244,20 +242,19 @@
                 };
 
                 overlays = {
-                    "Traffic Counts": trafficCounts,
-                    "Traffic Count Density": heat
+                    "Traffic Count Density": heat,
+                    "Traffic Count Measurement Locations": trafficCounts                   
                 };
 
                 // Add the Leaflet layer switcher
                 map.addControl(new L.control.layers(baseMaps, overlays, { collapsed: false }));
-
             },
             error: function (jqXHR, textStatus, errorThrown) {
 
                 console.log(jqXHR, " - ", textStatus, " - ", errorThrown);
 
                 if (textStatus = 'timeout') {
-                    // timeout
+                    console.log("Traffic count data request timing out.")
                 }
             }
         });
